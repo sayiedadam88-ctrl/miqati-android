@@ -1,3 +1,4 @@
+
 name: Build Miqati APK
 
 on:
@@ -20,16 +21,16 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Install Android SDK
+        uses: android-actions/setup-android@v3
       -      - name: Configure Android SDK
         run: |
           echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> "$GITHUB_ENV"
           echo "/usr/local/lib/android/sdk/platform-tools" >> "$GITHUB_PATH"
-
       - name: Install Android SDK packages
         run: |
           yes | /usr/local/lib/android/sdk/cmdline-tools/16.0/bin/sdkmanager --licenses
           /usr/local/lib/android/sdk/cmdline-tools/16.0/bin/sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
-
       - name: Accept Android SDK licenses
         run: yes | sdkmanager --licenses || true
 
@@ -43,46 +44,37 @@ jobs:
         run: |
           mkdir -p project
           unzip -o Miqati_Android_New_Starter.zip -d project
-
           echo "Project files:"
           find project -maxdepth 3 -type f | head -100
-
       - name: Locate Gradle project
         run: |
           if [ ! -f project/settings.gradle.kts ]; then
             echo "Searching for Gradle project..."
             SETTINGS=$(find project -name settings.gradle.kts -print -quit)
-
             if [ -z "$SETTINGS" ]; then
               echo "ERROR: settings.gradle.kts not found"
               exit 1
             fi
-
             PROJECT_DIR=$(dirname "$SETTINGS")
           else
             PROJECT_DIR="project"
           fi
-
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-
       - name: Check Android Gradle file
         run: |
           echo "Checking app/build.gradle.kts"
           find "$PROJECT_DIR" -name build.gradle.kts -print
-
           if [ -f "$PROJECT_DIR/app/build.gradle.kts" ]; then
             cat "$PROJECT_DIR/app/build.gradle.kts"
           else
             echo "ERROR: app/build.gradle.kts not found"
             exit 1
           fi
-
       - name: Build Miqati APK
         run: |
           cd "$PROJECT_DIR"
           chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
-
       - name: Upload Miqati APK
         if: success()
         uses: actions/upload-artifact@v4
@@ -90,3 +82,10 @@ jobs:
           name: Miqati-APK
           path: project/**/app/build/outputs/apk/debug/app-debug.apk 
           if-no-files-found: error
+0 commit comments
+Comments
+0
+ (0)
+Comment
+You're not receiving notifications from this thread.
+
