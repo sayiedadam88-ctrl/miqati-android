@@ -3,7 +3,8 @@ name: Build Miqati APK
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -21,14 +22,15 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-     
-      - name: Prepare Android SDK
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
         run: |
-          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
-          yes | "$ANDROID_SDK_ROOT/cmdline-tools/16.0/bin/sdkmanager" --licenses
-          "$ANDROID_SDK_ROOT/cmdline-tools/16.0/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0"
-        
+          sdkmanager --install "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          sdkmanager --licenses < /dev/null || true
+
       - name: Install Gradle
         run: |
           wget -q https://services.gradle.org/distributions/gradle-8.9-bin.zip
@@ -37,7 +39,7 @@ jobs:
 
       - name: Extract project
         run: |
-          mkdir project
+          mkdir -p project
           unzip -q Miqati_Android_New_Starter.zip -d project
           test -f project/settings.gradle.kts
 
