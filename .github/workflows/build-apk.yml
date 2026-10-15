@@ -3,18 +3,16 @@ name: Build Miqati APK
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
-
-permissions:
-  contents: read
+    paths:
+      - 'Miqati_Android_New_Starter.zip'
+      - '.github/workflows/build-apk.yml'
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Java
@@ -23,40 +21,64 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v4
-        with:
-          packages: platform-tools
+      - name: Install Android SDK
+        uses: android-actions/setup-android@v3
 
-      - name: Install Android SDK packages
+      - name: Install SDK packages
         run: |
-          sdkmanager --install "platforms;android-35"
-          sdkmanager --install "build-tools;35.0.0"
+          sdkmanager --install \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
 
-      - name: Verify Android SDK
-        run: |
-          sdkmanager --list_installed
-
-      - name: Install Gradle
-        run: |
-          wget -q https://services.gradle.org/distributions/gradle-8.9-bin.zip
-          unzip -q gradle-8.9-bin.zip
-          echo "$GITHUB_WORKSPACE/gradle-8.9/bin" >> "$GITHUB_PATH"
-
-      - name: Extract project
+      - name: Extract Miqati project
         run: |
           mkdir -p project
-          unzip -q Miqati_Android_New_Starter.zip -d project
-          test -f project/settings.gradle.kts
+          unzip -o Miqati_Android_New_Starter.zip -d project
 
-      - name: Build APK
+          echo "Project files:"
+          find project -maxdepth 3 -type f | head -100
+
+      - name: Locate Gradle project
         run: |
-          cd project
-          gradle assembleDebug
+          if [ ! -f project/settings.gradle.kts ]; then
+            echo "Searching for Gradle project..."
+            SETTINGS=$(find project -name settings.gradle.kts -print -quit)
 
-      - name: Upload APK
+            if [ -z "$SETTINGS" ]; then
+              echo "ERROR: settings.gradle.kts not found"
+              exit 1
+            fi
+
+            PROJECT_DIR=$(dirname "$SETTINGS")
+          else
+            PROJECT_DIR="project"
+          fi
+
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
+      - name: Check Android Gradle file
+        run: |
+          echo "Checking app/build.gradle.kts"
+          find "$PROJECT_DIR" -name build.gradle.kts -print
+
+          if [ -f "$PROJECT_DIR/app/build.gradle.kts" ]; then
+            cat "$PROJECT_DIR/app/build.gradle.kts"
+          else
+            echo "ERROR: app/build.gradle.kts not found"
+            exit 1
+          fi
+
+      - name: Build Miqati APK
+        run: |
+          cd "$PROJECT_DIR"
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
+
+      - name: Upload Miqati APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: Miqati-APK
-          path: project/app/build/outputs/apk/debug/app-debug.apk
+          path: project/**/app/build/outputs/apk/debug/app-debug.apk 
           if-no-files-found: error
